@@ -1,4 +1,4 @@
-"""Postgres target sink class, which handles writing streams."""
+"""SqlServer target sink class, which handles writing streams."""
 
 from __future__ import annotations
 
@@ -10,17 +10,17 @@ import sqlalchemy as sa
 from singer_sdk.sinks import SQLSink
 from sqlalchemy.sql.expression import bindparam
 
-from target_postgres.connector import PostgresConnector
+from target_sqlserver.connector import SqlServerConnector
 
 if t.TYPE_CHECKING:
     from singer_sdk.connectors.sql import FullyQualifiedName
     from sqlalchemy.sql import Executable
 
 
-class PostgresSink(SQLSink):
-    """Postgres target sink class."""
+class SqlServerSink(SQLSink):
+    """SqlServer target sink class."""
 
-    connector_class = PostgresConnector
+    connector_class = SqlServerConnector
 
     def __init__(self, *args, **kwargs):
         """Initialize SQL Sink. See super class for more details."""
@@ -38,13 +38,13 @@ class PostgresSink(SQLSink):
         self._append_only = value
 
     @property
-    def connector(self) -> PostgresConnector:
+    def connector(self) -> SqlServerConnector:
         """Return the connector object.
 
         Returns:
             The connector object.
         """
-        return t.cast(PostgresConnector, self._connector)
+        return t.cast(SqlServerConnector, self._connector)
 
     def setup(self) -> None:
         """Set up Sink.
@@ -116,7 +116,7 @@ class PostgresSink(SQLSink):
         # 'temp_test_optional_attributes_388470e9_fbd0_47b7_a52f_d32a2ee3f5f6'
         # exceeds maximum length of 63 characters
         # Is hit if we have a long table name, there is no limit on Temporary tables
-        # in postgres, used a guid just in case we are using the same session
+        # in sqlserver, used a guid just in case we are using the same session
         return f"{str(uuid.uuid4()).replace('-', '_')}"
 
     def bulk_insert_records(  # type: ignore[override]

@@ -1,9 +1,10 @@
-# target-postgres
+# target-sqlserver
+## This is currently WIP, not intended for production use!
 
-![PyPI - Version](https://img.shields.io/pypi/v/meltanolabs-target-postgres)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/meltanolabs-target-postgres)
-![PyPI - License](https://img.shields.io/pypi/l/meltanolabs-target-postgres)
-![Test target-postgres](https://github.com/meltanolabs/target-postgres/actions/workflows/ci_workflow.yml/badge.svg)
+![PyPI - Version](https://img.shields.io/pypi/v/lumenn-target-sqlserver)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/lumenn-target-sqlserver)
+![PyPI - License](https://img.shields.io/pypi/l/lumenn-target-sqlserver)
+![Test target-sqlserver](https://github.com/lumenn/target-sqlserver/actions/workflows/ci_workflow.yml/badge.svg)
 
 Singer Target for PostgreSQL databases.
 
@@ -22,14 +23,14 @@ Built with the [Meltano SDK](https://sdk.meltano.com) for Singer Taps and Target
 
 | Setting                         | Required | Default                       | Description                                                                                                                                                                                                                                                                                              |
 | :------------------------------ | :------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| host                            | False    | None                          | Hostname for postgres instance. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                      |
-| port                            | False    | 5432                          | The port on which postgres is awaiting connection. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                   |
+| host                            | False    | None                          | Hostname for sqlserver instance. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                      |
+| port                            | False    | 5432                          | The port on which sqlserver is awaiting connection. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                   |
 | user                            | False    | None                          | User name used to authenticate. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                      |
 | password                        | False    | None                          | Password used to authenticate. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                       |
 | database                        | False    | None                          | Database name. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                                       |
 | sqlalchemy_url                  | False    | None                          | SQLAlchemy connection string. This will override using host, user, password, port, dialect, and all ssl settings. Note that you must escape password special characters properly. See https://docs.sqlalchemy.org/en/20/core/engines.html#escaping-special-characters-such-as-signs-in-passwords         |
-| dialect+driver                  | False    | postgresql+psycopg2           | Dialect+driver see https://docs.sqlalchemy.org/en/20/core/engines.html. Generally just leave this alone. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                             |
-| default_target_schema           | False    | melty                         | Postgres schema to send data to, example: tap-clickup                                                                                                                                                                                                                                                    |
+| dialect+driver                  | False    | mssql+pymssql                 | Dialect+driver see https://docs.sqlalchemy.org/en/20/core/engines.html. Generally just leave this alone. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                             |
+| default_target_schema           | False    | melty                         | SqlServer schema to send data to, example: tap-clickup                                                                                                                                                                                                                                                    |
 | activate_version                | False    | 1                             | If set to false, the tap will ignore activate version messages. If set to true, add_record_metadata must be set to true as well.                                                                                                                                                                         |
 | hard_delete                     | False    | 0                             | When activate version is sent from a tap this specefies if we should delete the records that don't match, or mark them with a date in the `_sdc_deleted_at` column. This config option is ignored if `activate_version` is set to false.                                                                 |
 | add_record_metadata             | False    | 1                             | Note that this must be enabled for activate_version to work!This adds _sdc_extracted_at, _sdc_batched_at, and more to every table. See https://sdk.meltano.com/en/latest/implementation/record_metadata.html for more information.                                                                       |
@@ -49,7 +50,7 @@ Built with the [Meltano SDK](https://sdk.meltano.com) for Singer Taps and Target
 | ssh_tunnel.private_key          | False    | None                          | Private Key for authentication to the bastion host                                                                                                                                                                                                                                                       |
 | ssh_tunnel.private_key_password | False    | None                          | Private Key Password, leave None if no password is set                                                                                                                                                                                                                                                   |
 
-A full list of supported settings and capabilities is available by running: `target-postgres --about`
+A full list of supported settings and capabilities is available by running: `target-sqlserver --about`
 
 ### Built-in Settings
 
@@ -77,14 +78,14 @@ If you're using [Meltano](https://docs.meltano.com/), you can add the `faker` ex
 1. If you're installing the plugin from PyPI:
 
   ```yaml
-  pip_url: "meltanolabs-target-postgres[faker]==<version>"
+  pip_url: "lumenn-target-sqlserver[faker]==<version>"
   ```
 
 2. If you're installing the plugin from the Git repository:
 
   ```yaml
   # Note the nested quotes
-  pip_url: "'meltanolabs-target-postgres[faker] @ git+https://github.com/MeltanoLabs/target-postgres.git@<ref>'"
+  pip_url: "'lumenn-target-sqlserver[faker] @ git+https://github.com/MeltanoLabs/target-sqlserver.git@<ref>'"
   ```
 
 ## Installation
@@ -92,13 +93,13 @@ If you're using [Meltano](https://docs.meltano.com/), you can add the `faker` ex
 ### Using [`pipx`](https://github.com/pypa/pipx/)
 
 ```bash
-pipx install meltanolabs-target-postgres
+pipx install lumenn-target-sqlserver
 ```
 
 ### Using [`uv`](https://docs.astral.sh/uv/)
 
 ```bash
-uv tool install meltanolabs-target-postgres
+uv tool install lumenn-target-sqlserver
 ```
 
 ## Configuration
@@ -126,16 +127,16 @@ The database account provided must have access to:
 
 ## Usage
 
-You can easily run `target-postgres` by itself or in a pipeline using [Meltano](https://meltano.com/).
+You can easily run `target-sqlserver` by itself or in a pipeline using [Meltano](https://meltano.com/).
 
 ### Executing the Target Directly
 
 ```bash
-target-postgres --version
-target-postgres --help
+target-sqlserver --version
+target-sqlserver --help
 # Test using the "Carbon Intensity" sample:
 pipx install git+https://gitlab.com/meltano/tap-carbon-intensity
-tap-carbon-intensity | target-postgres --config /path/to/target-postgres-config.json
+tap-carbon-intensity | target-sqlserver --config /path/to/target-sqlserver-config.json
 ```
 
 ### Using Docker Compose
@@ -189,17 +190,17 @@ Start the test databases using Docker Compose:
 docker-compose up -d
 ```
 
-Create tests within the `target_postgres/tests` subfolder and
+Create tests within the `target_sqlserver/tests` subfolder and
   then run:
 
 ```bash
 poetry run pytest
 ```
 
-You can also test the `target-postgres` CLI interface directly using `poetry run`:
+You can also test the `target-sqlserver` CLI interface directly using `poetry run`:
 
 ```bash
-poetry run target-postgres --help
+poetry run target-sqlserver --help
 ```
 
 ### Testing with [Meltano](https://meltano.com/)
@@ -222,7 +223,7 @@ Now you can test and orchestrate using Meltano:
 
 ```bash
 # Test invocation:
-meltano invoke target-postgres --version
+meltano invoke target-sqlserver --version
 ```
 
 ### SDK Dev Guide

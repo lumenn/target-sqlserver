@@ -1,16 +1,16 @@
 [tool.poetry]
-name = "meltanolabs-target-postgres"
+name = "lumenn-target-sqlserver"
 version = "0.0.0"
-description = "Singer target for Postgres, built with the Meltano SDK for Singer Targets."
-authors = ["Meltano Team and Contributors <hello@meltano.com>"]
-maintainers = ["Meltano Team and Contributors <hello@meltano.com>"]
+description = "Singer target for Microsoft SQL Server, built with the Meltano SDK for Singer Targets."
+authors = ["Meltano Team and Contributors <hello@meltano.com>", "Maksymilian Stachowiak"]
+maintainers = ["Maksymilian Stachowiak"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://meltano.com"
-repository = "https://github.com/MeltanoLabs/target-postgres"
-documentation = "https://github.com/MeltanoLabs/target-postgres/blob/main/README.md"
+repository = "https://github.com/lumenn/target-sqlserver"
+documentation = "https://github.com/lumenn/target-sqlserver/blob/main/README.md"
 keywords = [
-    "Postgres",
+    "SQL Server",
+    "Microsoft",
     "Singer",
     "ELT",
     "Meltano",
@@ -28,7 +28,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 packages = [
-    { include = "target_postgres" }
+    { include = "target_sqlserver" }
 ]
 
 [tool.poetry.dependencies]
@@ -68,7 +68,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry.scripts]
 # CLI declaration
-target-postgres = 'target_postgres.target:TargetPostgres.cli'
+target-sqlserver = 'target_sqlserver.target:TargetSqlServer.cli'
 
 [tool.pytest.ini_options]
 pythonpath = [

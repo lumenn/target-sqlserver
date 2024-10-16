@@ -5,6 +5,7 @@ smoke-test
 .vscode/**
 output/**
 .env
+.target-sqlserver
 
 # Secrets and internal config files
 .secrets/*

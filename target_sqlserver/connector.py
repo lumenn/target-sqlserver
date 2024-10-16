@@ -16,9 +16,10 @@ from typing import cast
 import paramiko
 import simplejson
 import sqlalchemy as sa
+from sqlalchemy import types
 from singer_sdk import SQLConnector
 from singer_sdk import typing as th
-from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, BYTEA, JSONB, UUID
+from sqlalchemy.dialects.mssql import BIGINT, BYTEA, JSON, UNIQUEIDENTIFIER
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.types import (
@@ -39,7 +40,7 @@ if t.TYPE_CHECKING:
     from singer_sdk.connectors.sql import FullyQualifiedName
 
 
-class PostgresConnector(SQLConnector):
+class SqlServerConnector(SQLConnector):
     """Sets up SQL Alchemy, and other Postgres related stuff."""
 
     allow_column_add: bool = True  # Whether ADD COLUMN is supported.
@@ -416,7 +417,7 @@ class PostgresConnector(SQLConnector):
         self,
         full_table_name: str | FullyQualifiedName,
         column_name: str,
-        sql_type: sa.types.TypeEngine,
+        sql_type: types.TypeEngine,
         connection: sa.engine.Connection | None = None,
         column_object: sa.Column | None = None,
     ) -> None:
@@ -465,7 +466,7 @@ class PostgresConnector(SQLConnector):
         schema_name: str,
         table_name: str,
         column_name: str,
-        sql_type: sa.types.TypeEngine,
+        sql_type: types.TypeEngine,
         connection: sa.engine.Connection,
     ) -> None:
         """Create a new column.
@@ -497,7 +498,7 @@ class PostgresConnector(SQLConnector):
         table_name: str,
         schema_name: str,
         column_name: str,
-        column_type: sa.types.TypeEngine,
+        column_type: types.TypeEngine,
     ) -> sa.DDL:
         """Get the create column DDL statement.
 
@@ -530,7 +531,7 @@ class PostgresConnector(SQLConnector):
         schema_name: str,
         table_name: str,
         column_name: str,
-        sql_type: sa.types.TypeEngine,
+        sql_type: types.TypeEngine,
         connection: sa.engine.Connection,
         column_object: sa.Column | None,
     ) -> None:
@@ -547,9 +548,9 @@ class PostgresConnector(SQLConnector):
         Raises:
             NotImplementedError: if altering columns is not supported.
         """
-        current_type: sa.types.TypeEngine
+        current_type: types.TypeEngine
         if column_object is not None:
-            current_type = t.cast(sa.types.TypeEngine, column_object.type)
+            current_type = t.cast(types.TypeEngine, column_object.type)
         else:
             current_type = self._get_column_type(
                 schema_name=schema_name,
@@ -600,7 +601,7 @@ class PostgresConnector(SQLConnector):
         schema_name: str,
         table_name: str,
         column_name: str,
-        column_type: sa.types.TypeEngine,
+        column_type: types.TypeEngine,
     ) -> sa.DDL:
         """Get the alter column DDL statement.
 
@@ -766,7 +767,7 @@ class PostgresConnector(SQLConnector):
         table_name: str,
         column_name: str,
         connection: sa.engine.Connection,
-    ) -> sa.types.TypeEngine:
+    ) -> types.TypeEngine:
         """Get the SQL type of the declared column.
 
         Args:
@@ -794,7 +795,7 @@ class PostgresConnector(SQLConnector):
             )
             raise KeyError(msg) from ex
 
-        return t.cast(sa.types.TypeEngine, column.type)
+        return t.cast(types.TypeEngine, column.type)
 
     def get_table_columns(  # type: ignore[override]
         self,
