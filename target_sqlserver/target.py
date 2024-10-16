@@ -1,4 +1,4 @@
-"""Postgres target class."""
+"""SqlServer target class."""
 
 from __future__ import annotations
 
@@ -7,16 +7,16 @@ import typing as t
 from singer_sdk import typing as th
 from singer_sdk.target_base import SQLTarget
 
-from target_postgres.sinks import SqlServerSink
+from target_sqlserver.sinks import SqlServerSink
 
 if t.TYPE_CHECKING:
     from pathlib import PurePath
 
 
 class SqlServerTarget(SQLTarget):
-    """Target for Postgres."""
+    """Target for SqlServer."""
 
-    package_name = "meltanolabs-target-postgres"
+    package_name = "lumenn-target-sqlserver"
 
     def __init__(
         self,
@@ -93,13 +93,13 @@ class SqlServerTarget(SQLTarget):
             "`activate_version` configuration to False."
         )
 
-    name = "target-postgres"
+    name = "target-sqlserver"
     config_jsonschema = th.PropertiesList(
         th.Property(
             "host",
             th.StringType,
             description=(
-                "Hostname for postgres instance. "
+                "Hostname for sqlserver instance. "
                 + "Note if sqlalchemy_url is set this will be ignored."
             ),
         ),
@@ -108,7 +108,7 @@ class SqlServerTarget(SQLTarget):
             th.IntegerType,
             default=5432,
             description=(
-                "The port on which postgres is awaiting connection. "
+                "The port on which sqlserver is awaiting connection. "
                 + "Note if sqlalchemy_url is set this will be ignored."
             ),
         ),
@@ -150,7 +150,7 @@ class SqlServerTarget(SQLTarget):
         th.Property(
             "dialect+driver",
             th.StringType,
-            default="postgresql+psycopg2",
+            default="mssql+pymssql",
             description=(
                 "Dialect+driver see "
                 + "https://docs.sqlalchemy.org/en/20/core/engines.html. "
@@ -161,7 +161,7 @@ class SqlServerTarget(SQLTarget):
         th.Property(
             "default_target_schema",
             th.StringType,
-            description="Postgres schema to send data to, example: tap-clickup",
+            description="SqlServer schema to send data to, example: tap-clickup",
             default="melty",
         ),
         th.Property(
@@ -342,4 +342,4 @@ class SqlServerTarget(SQLTarget):
             description="SSH Tunnel Configuration, this is a json object",
         ),
     ).to_dict()
-    default_sink_class = PostgresSink
+    default_sink_class = SqlServerSink

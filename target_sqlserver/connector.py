@@ -1,4 +1,4 @@
-"""Handles Postgres interactions."""
+"""Handles SqlServer interactions."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from sqlalchemy import types
 from singer_sdk import SQLConnector
 from singer_sdk import typing as th
-from sqlalchemy.dialects.mssql import BIGINT, BYTEA, JSON, UNIQUEIDENTIFIER
+from sqlalchemy.dialects.mssql import BIGINT, VARBINARY, JSON, UNIQUEIDENTIFIER, NVARCHAR
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.types import (
@@ -28,10 +28,8 @@ from sqlalchemy.types import (
     DATETIME,
     DECIMAL,
     INTEGER,
-    TEXT,
     TIME,
     TIMESTAMP,
-    VARCHAR,
     TypeDecorator,
 )
 from sshtunnel import SSHTunnelForwarder
@@ -41,7 +39,7 @@ if t.TYPE_CHECKING:
 
 
 class SqlServerConnector(SQLConnector):
-    """Sets up SQL Alchemy, and other Postgres related stuff."""
+    """Sets up SQL Alchemy, and other SqlServer related stuff."""
 
     allow_column_add: bool = True  # Whether ADD COLUMN is supported.
     allow_column_rename: bool = True  # Whether RENAME COLUMN is supported.
@@ -50,7 +48,7 @@ class SqlServerConnector(SQLConnector):
     allow_temp_tables: bool = True  # Whether temp tables are supported.
 
     def __init__(self, config: dict) -> None:
-        """Initialize a connector to a Postgres database.
+        """Initialize a connector to a SqlServer database.
 
         Args:
             config: Configuration for the connector.
@@ -269,7 +267,7 @@ class SqlServerConnector(SQLConnector):
             if picked_type is not None:
                 sql_type_array.append(picked_type)
 
-        return PostgresConnector.pick_best_sql_type(sql_type_array=sql_type_array)
+        return SqlServerConnector.pick_best_sql_type(sql_type_array=sql_type_array)
 
     def pick_individual_type(self, jsonschema_type: dict):  # noqa: PLR0911
         """Select the correct sql type assuming jsonschema_type has only a single type.
@@ -285,44 +283,22 @@ class SqlServerConnector(SQLConnector):
         if "integer" in jsonschema_type["type"]:
             return BIGINT()
         if "object" in jsonschema_type["type"]:
-            return JSONB()
+            return VARBINARY()
         if "array" in jsonschema_type["type"]:
-            items = jsonschema_type.get("items")
-            # Case 1: items is a string
-            if isinstance(items, str):
-                return ARRAY(self.to_sql_type({"type": items}))
-
-            # Case 2: items are more complex
-            if isinstance(items, dict):
-                # Case 2.1: items are variants
-                if "type" not in items:
-                    return ARRAY(JSONB())
-
-                items_type = items["type"]
-
-                # Case 2.2: items are a single type
-                if isinstance(items_type, str):
-                    return ARRAY(self.to_sql_type({"type": items_type}))
-
-                # Case 2.3: items are a list of types
-                if isinstance(items_type, list):
-                    return ARRAY(self.to_sql_type({"type": items_type}))
-
-            # Case 3: tuples
-            return ARRAY(JSONB()) if isinstance(items, list) else JSONB()
+            raise RuntimeError("Array type is not supported in SqlServer.")
 
         # string formats
         if jsonschema_type.get("format") == "date-time":
             return TIMESTAMP()
         if jsonschema_type.get("format") == "uuid":
-            return UUID()
+            return UNIQUEIDENTIFIER()
         if (
             self.interpret_content_encoding
             and jsonschema_type.get("contentEncoding") == "base16"
         ):
             return HexByteString()
         individual_type = th.to_sql_type(jsonschema_type)
-        return TEXT() if isinstance(individual_type, VARCHAR) else individual_type
+        return NVARCHAR() if isinstance(individual_type, NVARCHAR) else individual_type
 
     @staticmethod
     def pick_best_sql_type(sql_type_array: list):
@@ -336,10 +312,9 @@ class SqlServerConnector(SQLConnector):
         """
         precedence_order = [
             HexByteString,
-            ARRAY,
-            JSONB,
-            UUID,
-            TEXT,
+            JSON,
+            UNIQUEIDENTIFIER,
+            NVARCHAR,
             TIMESTAMP,
             DATETIME,
             DATE,
@@ -354,7 +329,7 @@ class SqlServerConnector(SQLConnector):
         for sql_type, obj in itertools.product(precedence_order, sql_type_array):
             if isinstance(obj, sql_type):
                 return obj
-        return TEXT()
+        return NVARCHAR()
 
     def create_empty_table(  # type: ignore[override]  # noqa: PLR0913
         self,
@@ -858,7 +833,7 @@ class SqlServerConnector(SQLConnector):
 class NOTYPE(TypeDecorator):
     """Type to use when none is provided in the schema."""
 
-    impl = TEXT
+    impl = NVARCHAR
     cache_ok = True
 
     def process_bind_param(self, value, dialect):
@@ -877,7 +852,7 @@ class NOTYPE(TypeDecorator):
 
     def as_generic(self, *args: t.Any, **kwargs: t.Any):
         """Return the generic type for this column."""
-        return TEXT()
+        return NVARCHAR
 
 
 class HexByteString(TypeDecorator):
@@ -890,7 +865,7 @@ class HexByteString(TypeDecorator):
     is supported although it's not part of the standard.
     """
 
-    impl = BYTEA
+    impl = VARBINARY
 
     def process_bind_param(self, value, dialect):
         """Convert hex string to bytes."""
