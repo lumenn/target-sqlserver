@@ -11,7 +11,7 @@ from __future__ import annotations
 from singer_sdk import Stream, Tap
 from singer_sdk.typing import PropertiesList
 
-from target_postgres.tests.samples.sample_tap_countries.countries_streams import (
+from target_sqlserver.tests.samples.sample_tap_countries.countries_streams import (
     ContinentsStream,
     CountriesStream,
 )

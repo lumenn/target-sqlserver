@@ -24,31 +24,17 @@ Built with the [Meltano SDK](https://sdk.meltano.com) for Singer Taps and Target
 | Setting                         | Required | Default                       | Description                                                                                                                                                                                                                                                                                              |
 | :------------------------------ | :------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | host                            | False    | None                          | Hostname for sqlserver instance. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                      |
-| port                            | False    | 5432                          | The port on which sqlserver is awaiting connection. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                   |
+| port                            | False    | 1433                          | The port on which sqlserver is awaiting connection. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                   |
 | user                            | False    | None                          | User name used to authenticate. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                      |
 | password                        | False    | None                          | Password used to authenticate. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                       |
 | database                        | False    | None                          | Database name. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                                                                                                                       |
-| sqlalchemy_url                  | False    | None                          | SQLAlchemy connection string. This will override using host, user, password, port, dialect, and all ssl settings. Note that you must escape password special characters properly. See https://docs.sqlalchemy.org/en/20/core/engines.html#escaping-special-characters-such-as-signs-in-passwords         |
+| sqlalchemy_url                  | False    | None                          | SQLAlchemy connection string. This will override using host, user, password, port, dialect, trus_server_certificate. Note that you must escape password special characters properly. See https://docs.sqlalchemy.org/en/20/core/engines.html#escaping-special-characters-such-as-signs-in-passwords         |
 | dialect+driver                  | False    | mssql+pymssql                 | Dialect+driver see https://docs.sqlalchemy.org/en/20/core/engines.html. Generally just leave this alone. Note if sqlalchemy_url is set this will be ignored.                                                                                                                                             |
 | default_target_schema           | False    | melty                         | SqlServer schema to send data to, example: tap-clickup                                                                                                                                                                                                                                                    |
 | activate_version                | False    | 1                             | If set to false, the tap will ignore activate version messages. If set to true, add_record_metadata must be set to true as well.                                                                                                                                                                         |
 | hard_delete                     | False    | 0                             | When activate version is sent from a tap this specefies if we should delete the records that don't match, or mark them with a date in the `_sdc_deleted_at` column. This config option is ignored if `activate_version` is set to false.                                                                 |
 | add_record_metadata             | False    | 1                             | Note that this must be enabled for activate_version to work!This adds _sdc_extracted_at, _sdc_batched_at, and more to every table. See https://sdk.meltano.com/en/latest/implementation/record_metadata.html for more information.                                                                       |
 | interpret_content_encoding      | False    | 0                             | If set to true, the target will interpret the content encoding of the schema to determine how to store the data. Using this option may result in a more efficient storage of the data but may also result in an error if the data is not encoded as expected.                                            |
-| ssl_enable                      | False    | 0                             | Whether or not to use ssl to verify the server's identity. Use ssl_certificate_authority and ssl_mode for further customization. To use a client certificate to authenticate yourself to the server, use ssl_client_certificate_enable instead. Note if sqlalchemy_url is set this will be ignored.      |
-| ssl_client_certificate_enable   | False    | 0                             | Whether or not to provide client-side certificates as a method of authentication to the server. Use ssl_client_certificate and ssl_client_private_key for further customization. To use SSL to verify the server's identity, use ssl_enable instead. Note if sqlalchemy_url is set this will be ignored. |
-| ssl_mode                        | False    | verify-full                   | SSL Protection method, see [postgres documentation](https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-PROTECTION) for more information. Must be one of disable, allow, prefer, require, verify-ca, or verify-full. Note if sqlalchemy_url is set this will be ignored.                    |
-| ssl_certificate_authority       | False    | ~/.postgresql/root.crl        | The certificate authority that should be used to verify the server's identity. Can be provided either as the certificate itself (in .env) or as a filepath to the certificate. Note if sqlalchemy_url is set this will be ignored.                                                                       |
-| ssl_client_certificate          | False    | ~/.postgresql/postgresql.crt  | The certificate that should be used to verify your identity to the server. Can be provided either as the certificate itself (in .env) or as a filepath to the certificate. Note if sqlalchemy_url is set this will be ignored.                                                                           |
-| ssl_client_private_key          | False    | ~/.postgresql/postgresql.key  | The private key for the certificate you provided. Can be provided either as the certificate itself (in .env) or as a filepath to the certificate. Note if sqlalchemy_url is set this will be ignored.                                                                                                    |
-| ssl_storage_directory           | False    | .secrets                      | The folder in which to store SSL certificates provided as raw values. When a certificate/key is provided as a raw value instead of as a filepath, it must be written to a file before it can be used. This configuration option determines where that file is created.                                   |
-| ssh_tunnel                      | False    | None                          | SSH Tunnel Configuration, this is a json object                                                                                                                                                                                                                                                          |
-| ssh_tunnel.enable               | False    | 0                             | Enable an ssh tunnel (also known as bastion host), see the other ssh_tunnel.* properties for more details                                                                                                                                                                                                |
-| ssh_tunnel.host                 | False    | None                          | Host of the bastion host, this is the host we'll connect to via ssh                                                                                                                                                                                                                                      |
-| ssh_tunnel.username             | False    | None                          | Username to connect to bastion host                                                                                                                                                                                                                                                                      |
-| ssh_tunnel.port                 | False    | 22                            | Port to connect to bastion host                                                                                                                                                                                                                                                                          |
-| ssh_tunnel.private_key          | False    | None                          | Private Key for authentication to the bastion host                                                                                                                                                                                                                                                       |
-| ssh_tunnel.private_key_password | False    | None                          | Private Key Password, leave None if no password is set                                                                                                                                                                                                                                                   |
 
 A full list of supported settings and capabilities is available by running: `target-sqlserver --about`
 
@@ -104,14 +90,6 @@ uv tool install lumenn-target-sqlserver
 
 ## Configuration
 
-### An Explanation of Various SSL Configuration Options
-
-There are two distinct processes which both fall under the banner of SSL. One process occurs when the client wishes to ensure the identity of the server, and is the more common reason that SSL is used. Another is when the server wishes to ensure the identity of the client, for authentication/authorization purposes.
-
-If your server is set up with a certificate and private key, and you wish to check their certificate against a root certificate which you posess, use `ssl_enable`. You may then further customize this process using the `ssl_certificate_authority` and `ssl_mode` settings. See the [documentation](https://www.postgresql.org/docs/current/libpq-ssl.html#LIBQ-SSL-CERTIFICATES) for further details.
-
-If your server is set up with a root certificate, and you wish to provide a certificate to the server to verify your identity, use `ssl_client_certificate_enable`. You may then further customize this process using the `ssl_client_certificate` and `ssl_client_private_key` settings. See the [documentation](https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-CLIENTCERT) for further details.
-
 ### Configure using environment variables
 
 This Singer target will automatically import any environment variables within the working directory's
@@ -153,35 +131,6 @@ poetry install
 pipx install pre-commit
 pre-commit install
 ```
-
-### Setting Up SSL Files
-
-We have set the provided keys in the .ssl directory to be valid for multiple centuries. However, we have also provided configuration instructions below to create all of the necessary files for testing SSL.
-
-A list of each file and its purpose:
-1. `ca.crt`: CA for client's certificate (stored on the server)
-1. `cert.crt`: Client's certificate (stored on the client)
-1. `pkey.key`: Client's private key (stored on the client)
-1. `public_pkey.key`: Client's private key with incorrect file permissions (stored on the client)
-1. `root.crt`: CA for server's certificate (stored on the client)
-1. `server.crt`: Server's certificate (stored on the server)
-1. `server.key`: Server's private key (stored on the server)
-
-Run the following command to generate all relevant SSL files, with certificates valid for two centuries (73048 days).
-
-```bash
-openssl req -new -x509 -days 73048 -nodes -out ssl/server.crt -keyout ssl/server.key -subj "/CN=localhost" &&
-openssl req -new -x509 -days 73048 -nodes -out ssl/cert.crt -keyout ssl/pkey.key -subj "/CN=postgres" &&
-cp ssl/server.crt ssl/root.crt &&
-cp ssl/cert.crt ssl/ca.crt &&
-cp ssl/pkey.key ssl/public_pkey.key &&
-chown 999:999 ssl/server.key &&
-chmod 600 ssl/server.key &&
-chmod 600 ssl/pkey.key &&
-chmod 644 ssl/public_pkey.key
-```
-
-Now that all of the SSL files have been set up, you're ready to set up tests with pytest.
 
 ### Create and Run Tests
 

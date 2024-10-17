@@ -3,22 +3,20 @@
 import pytest
 import sqlalchemy as sa
 
-from target_postgres.connector import NOTYPE, PostgresConnector
+from target_sqlserver.connector import NOTYPE, SqlServerConnector
 
 
 @pytest.fixture
 def connector():
-    """Create a PostgresConnector instance."""
-    return PostgresConnector(
+    """Create a SqlServerConnector instance."""
+    return SqlServerConnector(
         config={
-            "dialect+driver": "postgresql+psycopg2",
-            "host": "localhost",
-            "port": "5432",
-            "user": "postgres",
-            "password": "postgres",
-            "database": "postgres",
-            "ssl_enable": False,
-            "ssl_client_certificate_enable": False,
+            "dialect+driver": "mssql+pymssql",
+            "host": "127.0.0.1",
+            "port": "1443",
+            "user": "sa",
+            "password": "VerySecretP455w0rd!",
+            "database": "master"
         },
     )
 

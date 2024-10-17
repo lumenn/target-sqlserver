@@ -1,4 +1,4 @@
-"""Postgres target tests"""
+"""SqlServer target tests"""
 
 from __future__ import annotations
 
@@ -11,46 +11,31 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy
+from sqlalchemy import exc
 from singer_sdk.exceptions import InvalidRecord, MissingKeyPropertiesError
 from singer_sdk.testing import sync_end_to_end
-from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.types import TEXT, TIMESTAMP
 
-from target_postgres.connector import PostgresConnector
-from target_postgres.target import TargetPostgres
-from target_postgres.tests.samples.aapl.aapl import Fundamentals
-from target_postgres.tests.samples.sample_tap_countries.countries_tap import (
+from target_sqlserver.connector import SqlServerConnector
+from target_sqlserver.target import SqlServerTarget
+from target_sqlserver.tests.samples.aapl.aapl import Fundamentals
+from target_sqlserver.tests.samples.sample_tap_countries.countries_tap import (
     SampleTapCountries,
 )
 
 from .core import (
     create_engine,
-    postgres_config,
-    postgres_config_no_ssl,
-    postgres_config_ssh_tunnel,
+    sqlserver_config,
 )
 
-
 # The below syntax is documented at https://docs.pytest.org/en/stable/deprecations.html#calling-fixtures-directly
-@pytest.fixture(scope="session", name="postgres_config")
-def postgres_config_fixture():
-    return postgres_config()
-
-
-@pytest.fixture(scope="session", name="postgres_config_no_ssl")
-def postgres_config_no_ssl_fixture():
-    return postgres_config_no_ssl()
-
-
-@pytest.fixture(scope="session", name="postgres_config_ssh_tunnel")
-def postgres_config_ssh_tunnel_fixture():
-    return postgres_config_ssh_tunnel()
-
+@pytest.fixture(scope="session", name="sqlserver_config")
+def sqlserver_config_fixture():
+    return sqlserver_config()
 
 @pytest.fixture
-def postgres_target(postgres_config) -> TargetPostgres:
-    return TargetPostgres(config=postgres_config)
-
+def sqlserver_target(sqlserver_config) -> SqlServerTarget:
+    return SqlServerTarget(config=sqlserver_config)
 
 def singer_file_to_target(file_name, target) -> None:
     """Singer file to Target, emulates a tap run
@@ -86,7 +71,7 @@ def remove_metadata_columns(row: dict) -> dict:
 
 
 def verify_data(
-    target: TargetPostgres,
+    target: SqlServerTarget,
     table_name: str,
     number_of_rows: int = 1,
     primary_key: str | None = None,
@@ -144,147 +129,148 @@ def verify_data(
             assert result.first()[0] == number_of_rows
 
 
-def test_sqlalchemy_url_config(postgres_config_no_ssl):
+def test_sqlalchemy_url_config(sqlserver_config):
     """Be sure that passing a sqlalchemy_url works
 
-    postgres_config_no_ssl is used because an SQLAlchemy URL will override all SSL
+    sqlserver_config is used because an SQLAlchemy URL will override all SSL
     settings and preclude connecting to a database using SSL.
     """
-    host = postgres_config_no_ssl["host"]
-    user = postgres_config_no_ssl["user"]
-    password = postgres_config_no_ssl["password"]
-    database = postgres_config_no_ssl["database"]
-    port = postgres_config_no_ssl["port"]
+    host = sqlserver_config["host"]
+    user = sqlserver_config["user"]
+    password = sqlserver_config["password"]
+    database = sqlserver_config["database"]
+    port = sqlserver_config["port"]
+    trust_cert = sqlserver_config["trust_server_certificate"]
 
     config = {
-        "sqlalchemy_url": f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        "sqlalchemy_url": f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?TrustServerCertificate={str(trust_cert)}"
     }
     tap = SampleTapCountries(config={}, state=None)
-    target = TargetPostgres(config=config)
+    target = SqlServerTarget(config=config)
     sync_end_to_end(tap, target)
 
 
 def test_port_default_config():
     """Test that the default config is passed into the engine when the config doesn't provide it"""
     config = {
-        "dialect+driver": "postgresql+psycopg2",
-        "host": "localhost",
-        "user": "postgres",
-        "password": "postgres",
-        "database": "postgres",
+        "dialect+driver": "mssql+pymssql",
+        "host": "127.0.0.1",
+        "user": "sa",
+        "password": "VerySecretP455w0rd!",
+        "database": "master",
     }
     dialect_driver = config["dialect+driver"]
     host = config["host"]
     user = config["user"]
     password = config["password"]
     database = config["database"]
-    target_config = TargetPostgres(config=config).config
-    connector = PostgresConnector(target_config)
+    target_config = SqlServerTarget(config=config).config
+    connector = SqlServerConnector(target_config)
 
     engine: sqlalchemy.engine.Engine = connector._engine
     assert (
         engine.url.render_as_string(hide_password=False)
-        == f"{dialect_driver}://{user}:{password}@{host}:5432/{database}"
+        == f"{dialect_driver}://{user}:{password}@{host}:1433/{database}"
     )
 
 
 def test_port_config():
     """Test that the port config works"""
     config = {
-        "dialect+driver": "postgresql+psycopg2",
-        "host": "localhost",
-        "user": "postgres",
-        "password": "postgres",
-        "database": "postgres",
-        "port": 5433,
+        "dialect+driver": "mssql+pymssql",
+        "host": "127.0.0.1",
+        "user": "sa",
+        "password": "VerySecretP455w0rd!",
+        "database": "master",
+        "port": 1434,
     }
     dialect_driver = config["dialect+driver"]
     host = config["host"]
     user = config["user"]
     password = config["password"]
     database = config["database"]
-    target_config = TargetPostgres(config=config).config
-    connector = PostgresConnector(target_config)
+    target_config = SqlServerTarget(config=config).config
+    connector = SqlServerConnector(target_config)
 
     engine: sqlalchemy.engine.Engine = connector._engine
     assert (
         engine.url.render_as_string(hide_password=False)
-        == f"{dialect_driver}://{user}:{password}@{host}:5433/{database}"
+        == f"{dialect_driver}://{user}:{password}@{host}:1434/{database}"
     )
 
 
 # Test name would work well
-def test_countries_to_postgres(postgres_config):
+def test_countries_to_sqlserver(sqlserver_config):
     tap = SampleTapCountries(config={}, state=None)
-    target = TargetPostgres(config=postgres_config)
+    target = SqlServerTarget(config=sqlserver_config)
     sync_end_to_end(tap, target)
 
 
-def test_aapl_to_postgres(postgres_config):
+def test_aapl_to_sqlserver(sqlserver_config):
     tap = Fundamentals(config={}, state=None)
-    target = TargetPostgres(config=postgres_config)
+    target = SqlServerTarget(config=sqlserver_config)
     sync_end_to_end(tap, target)
 
 
-def test_invalid_schema(postgres_target):
+def test_invalid_schema(sqlserver_target):
     with pytest.raises(Exception) as e:
         file_name = "invalid_schema.singer"
-        singer_file_to_target(file_name, postgres_target)
+        singer_file_to_target(file_name, sqlserver_target)
     assert (
         str(e.value) == "Line is missing required properties key(s): {'type': 'object'}"
     )
 
 
-def test_record_missing_key_property(postgres_target):
+def test_record_missing_key_property(sqlserver_target):
     with pytest.raises(MissingKeyPropertiesError) as e:
         file_name = "record_missing_key_property.singer"
-        singer_file_to_target(file_name, postgres_target)
+        singer_file_to_target(file_name, sqlserver_target)
     assert "Record is missing one or more key_properties." in str(e.value)
 
 
-def test_record_missing_required_property(postgres_target):
+def test_record_missing_required_property(sqlserver_target):
     with pytest.raises(InvalidRecord):
         file_name = "record_missing_required_property.singer"
-        singer_file_to_target(file_name, postgres_target)
+        singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_camelcase(postgres_target):
+def test_camelcase(sqlserver_target):
     file_name = "camelcase.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_special_chars_in_attributes(postgres_target):
+def test_special_chars_in_attributes(sqlserver_target):
     file_name = "special_chars_in_attributes.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_optional_attributes(postgres_target):
+def test_optional_attributes(sqlserver_target):
     file_name = "optional_attributes.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "optional": "This is optional"}
-    verify_data(postgres_target, "test_optional_attributes", 4, "id", row)
+    verify_data(sqlserver_target, "test_optional_attributes", 4, "id", row)
 
 
-def test_schema_no_properties(postgres_target):
+def test_schema_no_properties(sqlserver_target):
     """Expect to fail with ValueError"""
     file_name = "schema_no_properties.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
 # TODO test that data is correct
-def test_large_numeric_primary_key(postgres_target):
+def test_large_numeric_primary_key(sqlserver_target):
     """Check that large numeric (jsonschema: number) pkeys don't cause failure.
 
-    See: https://github.com/MeltanoLabs/target-postgres/issues/193
+    See: https://github.com/MeltanoLabs/target-sqlserver/issues/193
     """
     file_name = "large_numeric_primary_key.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
 # TODO test that data is correct
-def test_schema_updates(postgres_target):
+def test_schema_updates(sqlserver_target):
     file_name = "schema_updates.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {
         "id": 1,
         "a1": Decimal("101"),
@@ -294,38 +280,38 @@ def test_schema_updates(postgres_target):
         "a5": None,
         "a6": None,
     }
-    verify_data(postgres_target, "test_schema_updates", 6, "id", row)
+    verify_data(sqlserver_target, "test_schema_updates", 6, "id", row)
 
 
-def test_multiple_state_messages(postgres_target):
+def test_multiple_state_messages(sqlserver_target):
     file_name = "multiple_state_messages.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "metric": 100}
-    verify_data(postgres_target, "test_multiple_state_messages_a", 6, "id", row)
+    verify_data(sqlserver_target, "test_multiple_state_messages_a", 6, "id", row)
     row = {"id": 1, "metric": 110}
-    verify_data(postgres_target, "test_multiple_state_messages_b", 6, "id", row)
+    verify_data(sqlserver_target, "test_multiple_state_messages_b", 6, "id", row)
 
 
 # TODO test that data is correct
-def test_multiple_schema_messages(postgres_target, caplog):
+def test_multiple_schema_messages(sqlserver_target, caplog):
     """Test multiple identical schema messages.
 
     Multiple schema messages with the same schema should not cause 'schema has changed'
-    logging statements. See: https://github.com/MeltanoLabs/target-postgres/issues/124
+    logging statements. See: https://github.com/MeltanoLabs/target-sqlserver/issues/124
 
     Caplog docs: https://docs.pytest.org/en/latest/how-to/logging.html#caplog-fixture
     """
     file_name = "multiple_schema_messages.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     assert "Schema has changed for stream" not in caplog.text
 
 
-def test_relational_data(postgres_target):
+def test_relational_data(sqlserver_target):
     file_name = "user_location_data.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
     file_name = "user_location_upsert_data.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
     users = [
         {"id": 1, "name": "Johny"},
@@ -377,110 +363,110 @@ def test_relational_data(postgres_target):
         },
     ]
 
-    verify_data(postgres_target, "test_users", 8, "id", users)
-    verify_data(postgres_target, "test_locations", 5, "id", locations)
-    verify_data(postgres_target, "test_user_in_location", 5, "id", user_in_location)
+    verify_data(sqlserver_target, "test_users", 8, "id", users)
+    verify_data(sqlserver_target, "test_locations", 5, "id", locations)
+    verify_data(sqlserver_target, "test_user_in_location", 5, "id", user_in_location)
 
 
-def test_no_primary_keys(postgres_target):
+def test_no_primary_keys(sqlserver_target):
     """We run both of these tests twice just to ensure that no records are removed and append only works properly"""
-    engine = create_engine(postgres_target)
+    engine = create_engine(sqlserver_target)
     table_name = "test_no_pk"
-    full_table_name = postgres_target.config["default_target_schema"] + "." + table_name
+    full_table_name = sqlserver_target.config["default_target_schema"] + "." + table_name
     with engine.connect() as connection, connection.begin():
         connection.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {full_table_name}"))
     file_name = f"{table_name}.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
     file_name = f"{table_name}_append.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
     file_name = f"{table_name}.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
     file_name = f"{table_name}_append.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
-    verify_data(postgres_target, table_name, 16)
+    verify_data(sqlserver_target, table_name, 16)
 
 
-def test_no_type(postgres_target):
+def test_no_type(sqlserver_target):
     file_name = "test_no_type.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_duplicate_records(postgres_target):
+def test_duplicate_records(sqlserver_target):
     file_name = "duplicate_records.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "metric": 100}
-    verify_data(postgres_target, "test_duplicate_records", 2, "id", row)
+    verify_data(sqlserver_target, "test_duplicate_records", 2, "id", row)
 
 
-def test_array_data(postgres_target):
+def test_array_data(sqlserver_target):
     file_name = "array_data.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "fruits": ["apple", "orange", "pear"]}
-    verify_data(postgres_target, "test_carts", 4, "id", row)
+    verify_data(sqlserver_target, "test_carts", 4, "id", row)
 
 
-def test_jsonb_data(postgres_target):
+def test_jsonb_data(sqlserver_target):
     file_name = "jsonb_data.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = [
         {"id": 1, "event_data": None},
         {"id": 2, "event_data": {"test": {"test_name": "test_value"}}},
     ]
-    verify_data(postgres_target, "test_jsonb_data", 2, "id", row)
+    verify_data(sqlserver_target, "test_jsonb_data", 2, "id", row)
 
 
-def test_encoded_string_data(postgres_target):
+def test_encoded_string_data(sqlserver_target):
     """
-    We removed NUL characters from the original encoded_strings.singer as postgres doesn't allow them.
-    https://www.postgresql.org/docs/current/functions-string.html#:~:text=chr(0)%20is%20disallowed%20because%20text%20data%20types%20cannot%20store%20that%20character.
+    We removed NUL characters from the original encoded_strings.singer as sqlserver doesn't allow them.
+    https://www.sqlserverql.org/docs/current/functions-string.html#:~:text=chr(0)%20is%20disallowed%20because%20text%20data%20types%20cannot%20store%20that%20character.
     chr(0) is disallowed because text data types cannot store that character.
 
     Note you will recieve a  ValueError: A string literal cannot contain NUL (0x00) characters. Which seems like a reasonable error.
-    See issue https://github.com/MeltanoLabs/target-postgres/issues/60 for more details.
+    See issue https://github.com/MeltanoLabs/target-sqlserver/issues/60 for more details.
     """
 
     file_name = "encoded_strings.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "info": "simple string 2837"}
-    verify_data(postgres_target, "test_strings", 11, "id", row)
+    verify_data(sqlserver_target, "test_strings", 11, "id", row)
     row = {"id": 1, "info": {"name": "simple", "value": "simple string 2837"}}
-    verify_data(postgres_target, "test_strings_in_objects", 11, "id", row)
+    verify_data(sqlserver_target, "test_strings_in_objects", 11, "id", row)
     row = {"id": 1, "strings": ["simple string", "απλή συμβολοσειρά", "简单的字串"]}
-    verify_data(postgres_target, "test_strings_in_arrays", 6, "id", row)
+    verify_data(sqlserver_target, "test_strings_in_arrays", 6, "id", row)
 
 
-def test_tap_appl(postgres_target):
-    """Expect to fail with ValueError due to primary key https://github.com/MeltanoLabs/target-postgres/issues/54"""
+def test_tap_appl(sqlserver_target):
+    """Expect to fail with ValueError due to primary key https://github.com/MeltanoLabs/target-sqlserver/issues/54"""
     file_name = "tap_aapl.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_tap_countries(postgres_target):
+def test_tap_countries(sqlserver_target):
     file_name = "tap_countries.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_missing_value(postgres_target):
+def test_missing_value(sqlserver_target):
     file_name = "missing_value.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_large_int(postgres_target):
+def test_large_int(sqlserver_target):
     file_name = "large_int.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_anyof(postgres_target):
+def test_anyof(sqlserver_target):
     """Test that anyOf is handled correctly"""
-    engine = create_engine(postgres_target)
+    engine = create_engine(sqlserver_target)
     table_name = "commits"
     file_name = f"{table_name}.singer"
-    schema = postgres_target.config["default_target_schema"]
-    singer_file_to_target(file_name, postgres_target)
+    schema = sqlserver_target.config["default_target_schema"]
+    singer_file_to_target(file_name, sqlserver_target)
     with engine.connect() as connection:
         meta = sqlalchemy.MetaData()
         table = sqlalchemy.Table(
@@ -492,15 +478,10 @@ def test_anyof(postgres_target):
                 assert isinstance(column.type, TEXT)
 
             # Any of nullable date-time.
-            # Note that postgres timestamp is equivalent to jsonschema date-time.
+            # Note that sqlserver timestamp is equivalent to jsonschema date-time.
             # {"anyOf":[{"type":"string","format":"date-time"},{"type":"null"}]}
             if column.name in {"authored_date", "committed_date"}:
                 assert isinstance(column.type, TIMESTAMP)
-
-            # Any of nullable array of strings or single string.
-            # {"anyOf":[{"type":"array","items":{"type":["null","string"]}},{"type":"string"},{"type":"null"}]}
-            if column.name == "parent_ids":
-                assert isinstance(column.type, ARRAY)
 
             # Any of nullable string.
             # {"anyOf":[{"type":"string"},{"type":"null"}]}
@@ -513,17 +494,17 @@ def test_anyof(postgres_target):
                 assert isinstance(column.type, TEXT)
 
 
-def test_new_array_column(postgres_target):
+def test_new_array_column(sqlserver_target):
     """Create a new Array column with an existing table"""
     file_name = "new_array_column.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_base16_content_encoding_not_interpreted(postgres_config_no_ssl):
+def test_base16_content_encoding_not_interpreted(sqlserver_config):
     """Make sure we can insert base16 encoded data into the database without interpretation"""
-    postgres_config_modified = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_modified["interpret_content_encoding"] = False
-    target = TargetPostgres(config=postgres_config_modified)
+    sqlserver_config_modified = copy.deepcopy(sqlserver_config)
+    sqlserver_config_modified["interpret_content_encoding"] = False
+    target = SqlServerTarget(config=sqlserver_config_modified)
 
     singer_file_to_target("base16_content_encoding_not_interpreted.singer", target)
 
@@ -555,11 +536,11 @@ def test_base16_content_encoding_not_interpreted(postgres_config_no_ssl):
     verify_data(target, "test_base_16_encoding_not_interpreted", 7, "id", rows)
 
 
-def test_base16_content_encoding_interpreted(postgres_config_no_ssl):
+def test_base16_content_encoding_interpreted(sqlserver_config):
     """Make sure we can insert base16 encoded data into the database with interpretation"""
-    postgres_config_modified = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_modified["interpret_content_encoding"] = True
-    target = TargetPostgres(config=postgres_config_modified)
+    sqlserver_config_modified = copy.deepcopy(sqlserver_config)
+    sqlserver_config_modified["interpret_content_encoding"] = True
+    target = SqlServerTarget(config=sqlserver_config_modified)
 
     singer_file_to_target("base16_content_encoding_interpreted.singer", target)
 
@@ -591,14 +572,14 @@ def test_base16_content_encoding_interpreted(postgres_config_no_ssl):
     verify_data(target, "test_base_16_encoding_interpreted", 7, "id", rows)
 
 
-def test_activate_version_hard_delete(postgres_config_no_ssl):
+def test_activate_version_hard_delete(sqlserver_config):
     """Activate Version Hard Delete Test"""
     table_name = "test_activate_version_hard"
     file_name = f"{table_name}.singer"
-    full_table_name = postgres_config_no_ssl["default_target_schema"] + "." + table_name
-    postgres_config_hard_delete_true = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_hard_delete_true["hard_delete"] = True
-    pg_hard_delete_true = TargetPostgres(config=postgres_config_hard_delete_true)
+    full_table_name = sqlserver_config["default_target_schema"] + "." + table_name
+    sqlserver_config_hard_delete_true = copy.deepcopy(sqlserver_config)
+    sqlserver_config_hard_delete_true["hard_delete"] = True
+    pg_hard_delete_true = SqlServerTarget(config=sqlserver_config_hard_delete_true)
     engine = create_engine(pg_hard_delete_true)
     singer_file_to_target(file_name, pg_hard_delete_true)
     with engine.connect() as connection:
@@ -628,14 +609,14 @@ def test_activate_version_hard_delete(postgres_config_no_ssl):
         assert result.rowcount == 7
 
 
-def test_activate_version_soft_delete(postgres_config_no_ssl):
+def test_activate_version_soft_delete(sqlserver_config):
     """Activate Version Soft Delete Test"""
     table_name = "test_activate_version_soft"
     file_name = f"{table_name}.singer"
-    full_table_name = postgres_config_no_ssl["default_target_schema"] + "." + table_name
-    postgres_config_hard_delete_false = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_hard_delete_false["hard_delete"] = False
-    pg_soft_delete = TargetPostgres(config=postgres_config_hard_delete_false)
+    full_table_name = sqlserver_config["default_target_schema"] + "." + table_name
+    sqlserver_config_hard_delete_false = copy.deepcopy(sqlserver_config)
+    sqlserver_config_hard_delete_false["hard_delete"] = False
+    pg_soft_delete = SqlServerTarget(config=sqlserver_config_hard_delete_false)
     engine = create_engine(pg_soft_delete)
     singer_file_to_target(file_name, pg_soft_delete)
     with engine.connect() as connection:
@@ -694,29 +675,29 @@ def test_activate_version_soft_delete(postgres_config_no_ssl):
         assert south_america == result.first()._asdict()
 
 
-def test_activate_version_no_metadata(postgres_config_no_ssl):
+def test_activate_version_no_metadata(sqlserver_config):
     """Activate Version Test for if add_record_metadata is disabled"""
-    postgres_config_modified = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_modified["activate_version"] = True
-    postgres_config_modified["add_record_metadata"] = False
+    sqlserver_config_modified = copy.deepcopy(sqlserver_config)
+    sqlserver_config_modified["activate_version"] = True
+    sqlserver_config_modified["add_record_metadata"] = False
     with pytest.raises(AssertionError):
-        TargetPostgres(config=postgres_config_modified)
+        SqlServerTarget(config=sqlserver_config_modified)
 
 
-def test_activate_version_deletes_data_properly(postgres_target):
+def test_activate_version_deletes_data_properly(sqlserver_target):
     """Activate Version should"""
-    engine = create_engine(postgres_target)
+    engine = create_engine(sqlserver_target)
     table_name = "test_activate_version_deletes_data_properly"
     file_name = f"{table_name}.singer"
-    full_table_name = postgres_target.config["default_target_schema"] + "." + table_name
+    full_table_name = sqlserver_target.config["default_target_schema"] + "." + table_name
     with engine.connect() as connection, connection.begin():
         result = connection.execute(
             sqlalchemy.text(f"DROP TABLE IF EXISTS {full_table_name}")
         )
 
-    postgres_config_soft_delete = copy.deepcopy(postgres_target._config)
-    postgres_config_soft_delete["hard_delete"] = True
-    pg_hard_delete = TargetPostgres(config=postgres_config_soft_delete)
+    sqlserver_config_soft_delete = copy.deepcopy(sqlserver_target._config)
+    sqlserver_config_soft_delete["hard_delete"] = True
+    pg_hard_delete = SqlServerTarget(config=sqlserver_config_soft_delete)
     singer_file_to_target(file_name, pg_hard_delete)
     # Will populate us with 7 records
     with engine.connect() as connection:
@@ -744,156 +725,25 @@ def test_activate_version_deletes_data_properly(postgres_target):
         assert result.rowcount == 0
 
 
-def test_reserved_keywords(postgres_target):
+def test_reserved_keywords(sqlserver_target):
     """Target should work regardless of column names
 
-    Postgres has a number of resereved keywords listed here https://www.postgresql.org/docs/current/sql-keywords-appendix.html.
+    Postgres has a number of resereved keywords listed here https://www.sqlserverql.org/docs/current/sql-keywords-appendix.html.
     """
     file_name = "reserved_keywords.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_uppercase_stream_name_with_column_alter(postgres_target):
+def test_uppercase_stream_name_with_column_alter(sqlserver_target):
     """Column Alters need to work with uppercase stream names"""
     file_name = "uppercase_stream_name_with_column_alter.singer"
-    singer_file_to_target(file_name, postgres_target)
+    singer_file_to_target(file_name, sqlserver_target)
 
 
-def test_activate_version_uppercase_stream_name(postgres_config_no_ssl):
+def test_activate_version_uppercase_stream_name(sqlserver_config):
     """Activate Version should work with uppercase stream names"""
     file_name = "test_activate_version_uppercase_stream_name.singer"
-    postgres_config_hard_delete = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_hard_delete["hard_delete"] = True
-    pg_hard_delete = TargetPostgres(config=postgres_config_hard_delete)
+    sqlserver_config_hard_delete = copy.deepcopy(sqlserver_config)
+    sqlserver_config_hard_delete["hard_delete"] = True
+    pg_hard_delete = SqlServerTarget(config=sqlserver_config_hard_delete)
     singer_file_to_target(file_name, pg_hard_delete)
-
-
-def test_postgres_ssl_no_config(postgres_config_no_ssl):
-    """Test that connection will fail when no SSL configuration options are provided.
-
-    postgres_config_no_ssl has no configuration options for SSL, but port 5432 is a
-    database that requires SSL. An error is expected because connecting to this database
-    without SSL enabled shouldn't be possible.
-    """
-
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config_no_ssl)
-    postgres_config_modified["port"] = 5432
-
-    with pytest.raises(sqlalchemy.exc.OperationalError):
-        target = TargetPostgres(config=postgres_config_modified)
-        sync_end_to_end(tap, target)
-
-
-def test_postgres_ssl_no_pkey(postgres_config):
-    """Test that connection will fail when no private key is provided."""
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["ssl_client_private_key"] = None
-
-    # This is an AssertionError because checking that a private key exists is asserted
-    # for when ssl_client_certificate_enable is on.
-    with pytest.raises(AssertionError):
-        TargetPostgres(config=postgres_config_modified)
-
-
-def test_postgres_ssl_public_pkey(postgres_config):
-    """Test that connection will fail when private key access is not restricted."""
-
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["ssl_client_private_key"] = "./ssl/public_pkey.key"
-
-    # If the private key exists but access is too public, the target won't fail until
-    # the it attempts to establish a connection to the database.
-    with pytest.raises(sqlalchemy.exc.OperationalError):
-        target = TargetPostgres(config=postgres_config_modified)
-        sync_end_to_end(tap, target)
-
-
-def test_postgres_ssl_no_client_cert(postgres_config):
-    """Test that connection will fail when client certificate is not provided."""
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["ssl_client_certificate"] = None
-
-    # This is an AssertionError because checking that a certificate exists is asserted
-    # for when ssl_client_certificate_enable is on.
-    with pytest.raises(AssertionError):
-        TargetPostgres(config=postgres_config_modified)
-
-
-def test_postgres_ssl_invalid_cn(postgres_config):
-    """Test that connection will fail due to non-matching common names.
-
-    The server is configured with certificates that state it is hosted at "localhost",
-    which won't match the loopback address "127.0.0.1". Because verify-full (the
-    default) requires them to match, an error is expected.
-    """
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["host"] = "127.0.0.1"
-    postgres_config_modified["ssl_mode"] = "verify-full"
-
-    with pytest.raises(sqlalchemy.exc.OperationalError):
-        target = TargetPostgres(config=postgres_config_modified)
-        sync_end_to_end(tap, target)
-
-
-def test_postgres_ssl_verify_ca(postgres_config):
-    """Test that connection will succeed despite non-matching common names.
-
-    When verify-ca is used, it does not matter that "localhost" and "127.0.0.1" don't
-    match, so no error is expected.
-    """
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["host"] = "127.0.0.1"
-    postgres_config_modified["ssl_mode"] = "verify-ca"
-
-    target = TargetPostgres(config=postgres_config_modified)
-    sync_end_to_end(tap, target)
-
-
-def test_postgres_ssl_unsupported(postgres_config):
-    """Test that a connection to a database without SSL configured will fail.
-
-    Port 5433 is established as the "postgres_no_ssl" service and uses a database
-    configuration that doesn't have SSL configured. Because the default ssl mode
-    (verify-full) requires SSL, an error is expected.
-    """
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["port"] = 5433  # Alternate service: postgres_no_ssl
-
-    with pytest.raises(sqlalchemy.exc.OperationalError):
-        target = TargetPostgres(config=postgres_config_modified)
-        sync_end_to_end(tap, target)
-
-
-def test_postgres_ssl_prefer(postgres_config):
-    """Test that a connection without SSL will succeed when ssl_mode=prefer.
-
-    ssl_mode=prefer uses opportunistic encryption, but shouldn't fail if the database
-    doesn't support SSL, so no error is expected.
-    """
-    tap = SampleTapCountries(config={}, state=None)
-
-    postgres_config_modified = copy.deepcopy(postgres_config)
-    postgres_config_modified["port"] = 5433  # Alternative service: postgres_no_ssl
-    postgres_config_modified["ssl_mode"] = "prefer"
-
-    target = TargetPostgres(config=postgres_config_modified)
-    sync_end_to_end(tap, target)
-
-
-def test_postgres_ssh_tunnel(postgres_config_ssh_tunnel):
-    """Test that using an ssh tunnel is successful."""
-    tap = SampleTapCountries(config={}, state=None)
-
-    target = TargetPostgres(config=postgres_config_ssh_tunnel)
-    sync_end_to_end(tap, target)

@@ -1,4 +1,4 @@
-"""SDK tests for target postgres"""
+"""SDK tests for target sqlserver"""
 
 # flake8: noqa
 import pytest
@@ -24,9 +24,9 @@ from singer_sdk.testing.target_tests import (
     TargetSpecialCharsInAttributes,
 )
 
-from target_postgres.target import TargetPostgres
+from target_sqlserver.target import SqlServerTarget
 
-from .core import create_engine, postgres_config
+from .core import create_engine, sqlserver_config
 
 target_tests = TestSuite(
     kind="target",
@@ -36,11 +36,11 @@ target_tests = TestSuite(
         TargetCamelcaseTest,
         TargetCliPrintsTest,
         TargetDuplicateRecords,
-        # Postgres doesn't support NULL characters in strings
+        # SqlServer doesn't support NULL characters in strings
         # TargetEncodedStringData,
         TargetInvalidSchemaTest,
         # This tap only outputs one state message at the end of execution, fails assertion.
-        # Separate custom test in test_target_postgres.py
+        # Separate custom test in test_target_sqlserver.py
         # TargetMultipleStateMessages,
         TargetNoPrimaryKeys,
         TargetOptionalAttributes,
@@ -56,8 +56,8 @@ target_tests = TestSuite(
 )
 
 
-class BasePostgresSDKTests:
-    """Base class for Postgres SDK tests."""
+class BaseSqlServerSDKTests:
+    """Base class for SqlServer SDK tests."""
 
     @pytest.fixture()
     def connection(self, runner):
@@ -66,13 +66,13 @@ class BasePostgresSDKTests:
 
 
 SDKTests = get_target_test_class(
-    target_class=TargetPostgres,
-    config=postgres_config(),
+    target_class=SqlServerTarget,
+    config=sqlserver_config(),
     custom_suites=[target_tests],
     suite_config=None,
     include_target_tests=False,
 )
 
 
-class TestTargetPostgres(BasePostgresSDKTests, SDKTests):
+class TestTargetSqlServer(BaseSqlServerSDKTests, SDKTests):
     """SDK tests"""

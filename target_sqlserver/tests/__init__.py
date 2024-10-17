@@ -1,1 +1,1 @@
-"""Test suite for target-postgres."""
+"""Test suite for target-sqlserver."""
