@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy
+from urllib.parse import quote_plus
 from sqlalchemy import exc
 from singer_sdk.exceptions import InvalidRecord, MissingKeyPropertiesError
 from singer_sdk.testing import sync_end_to_end
@@ -142,7 +143,7 @@ def test_sqlalchemy_url_config(sqlserver_config):
     port = sqlserver_config["port"]
 
     config = {
-        "sqlalchemy_url": f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}"
+        "sqlalchemy_url": f"mssql+pymssql://{user}:{quote_plus(password)}@{host}:{port}/{database}"
     }
     tap = SampleTapCountries(config={}, state=None)
     target = SqlServerTarget(config=config)
@@ -169,7 +170,7 @@ def test_port_default_config():
     engine: sqlalchemy.engine.Engine = connector._engine
     assert (
         engine.url.render_as_string(hide_password=False)
-        == f"{dialect_driver}://{user}:{password}@{host}:1433/{database}"
+        == f"{dialect_driver}://{user}:{quote_plus(password)}@{host}:1433/{database}"
     )
 
 
@@ -194,7 +195,7 @@ def test_port_config():
     engine: sqlalchemy.engine.Engine = connector._engine
     assert (
         engine.url.render_as_string(hide_password=False)
-        == f"{dialect_driver}://{user}:{password}@{host}:1434/{database}"
+        == f"{dialect_driver}://{user}:{quote_plus(password)}@{host}:1434/{database}"
     )
 
 
