@@ -10,14 +10,13 @@ def sqlserver_config():
     return {
         "dialect+driver": "mssql+pymssql",
         "host": "127.0.0.1",
-        "user": "sqlserver",
+        "user": "sa",
         "password": "VerySecretP455w0rd!",
         "database": "master",
         "port": 1433,
         "add_record_metadata": True,
         "hard_delete": False,
         "default_target_schema": "melty",
-        "trust_server_certificate": True,
         "ssl_enable": False,
         "ssl_client_certificate_enable": False,
     }

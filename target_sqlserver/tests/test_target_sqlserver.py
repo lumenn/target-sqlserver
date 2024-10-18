@@ -14,7 +14,7 @@ import sqlalchemy
 from sqlalchemy import exc
 from singer_sdk.exceptions import InvalidRecord, MissingKeyPropertiesError
 from singer_sdk.testing import sync_end_to_end
-from sqlalchemy.types import TEXT, TIMESTAMP
+from sqlalchemy.dialects.mssql import NVARCHAR, DATETIME
 
 from target_sqlserver.connector import SqlServerConnector
 from target_sqlserver.target import SqlServerTarget
@@ -140,10 +140,9 @@ def test_sqlalchemy_url_config(sqlserver_config):
     password = sqlserver_config["password"]
     database = sqlserver_config["database"]
     port = sqlserver_config["port"]
-    trust_cert = sqlserver_config["trust_server_certificate"]
 
     config = {
-        "sqlalchemy_url": f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?TrustServerCertificate={str(trust_cert)}"
+        "sqlalchemy_url": f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}"
     }
     tap = SampleTapCountries(config={}, state=None)
     target = SqlServerTarget(config=config)
@@ -475,23 +474,23 @@ def test_anyof(sqlserver_target):
         for column in table.c:
             # {"type":"string"}
             if column.name == "id":
-                assert isinstance(column.type, TEXT)
+                assert isinstance(column.type, NVARCHAR)
 
             # Any of nullable date-time.
             # Note that sqlserver timestamp is equivalent to jsonschema date-time.
             # {"anyOf":[{"type":"string","format":"date-time"},{"type":"null"}]}
             if column.name in {"authored_date", "committed_date"}:
-                assert isinstance(column.type, TIMESTAMP)
+                assert isinstance(column.type, DATETIME)
 
             # Any of nullable string.
             # {"anyOf":[{"type":"string"},{"type":"null"}]}
             if column.name == "commit_message":
-                assert isinstance(column.type, TEXT)
+                assert isinstance(column.type, NVARCHAR)
 
             # Any of nullable string or integer.
             # {"anyOf":[{"type":"string"},{"type":"integer"},{"type":"null"}]}
             if column.name == "legacy_id":
-                assert isinstance(column.type, TEXT)
+                assert isinstance(column.type, NVARCHAR)
 
 
 def test_new_array_column(sqlserver_target):

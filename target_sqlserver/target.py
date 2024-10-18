@@ -48,10 +48,9 @@ class SqlServerTarget(SQLTarget):
             and self.config.get("user") is not None
             and self.config.get("password") is not None
             and self.config.get("dialect+driver") is not None
-            and self.config.get("trust_server_certificate") is not None
         ), (
             "Need either the sqlalchemy_url to be set or host, port, user,"
-            + "password, dialect+driver and trust_server_certificate to be set"
+            + "password, dialect+driver to be set"
         )
 
         assert self.config.get("add_record_metadata") or not self.config.get(
@@ -175,13 +174,5 @@ class SqlServerTarget(SQLTarget):
                 "in an error if the data is not encoded as expected."
             ),
         ),
-        th.Property(
-            "trust_server_certificate",
-            th.BooleanType,
-            default=False,
-            description=(
-                "If set to true, TrustServerCertificate will be added to connection string."
-            ) 
-        )
     ).to_dict()
     default_sink_class = SqlServerSink

@@ -184,13 +184,13 @@ develop your own Singer taps and targets.
 
 The below table shows how this tap will map between jsonschema datatypes and Postgres datatypes.
 
-| jsonschema                     | Postgres                                |
+| jsonschema                     | SqlServer                                |
 |--------------------------------|-----------------------------------------|
 | integer                        | bigint                                  |
 | UNSUPPORTED                    | bigserial                               |
 | UNSUPPORTED                    | bit [ (n) ]                             |
 | UNSUPPORTED                    | bit varying [ (n) ]                     |
-| boolean                        | boolean                                 |
+| boolean                        | bit                                 |
 | UNSUPPORTED                    | box                                     |
 | string with contentEncoding="base16" ([opt-in feature](#content-encoding-support)) | bytea                                   |
 | UNSUPPORTED                    | character [ (n) ]                       |
@@ -237,14 +237,13 @@ If a column has multiple jsonschema types, the following order is using to order
 - ARRAY(JSONB)
 - JSONB
 - TEXT
-- TIMESTAMP
 - DATETIME
 - DATE
 - TIME
 - DECIMAL
 - BIGINT
 - INTEGER
-- BOOLEAN
+- BIT
 - NOTYPE
 
 ## Content Encoding Support

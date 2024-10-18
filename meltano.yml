@@ -49,8 +49,6 @@ plugins:
     - name: target_schema
     - name: add_record_metadata
       kind: boolean
-    - name: trust_server_certificate
-      kind: boolean
     config:
       host: 127.0.0.1
       port: 1433

@@ -19,17 +19,15 @@ import sqlalchemy as sa
 from sqlalchemy import types
 from singer_sdk import SQLConnector
 from singer_sdk import typing as th
-from sqlalchemy.dialects.mssql import BIGINT, VARBINARY, JSON, UNIQUEIDENTIFIER, NVARCHAR
+from sqlalchemy.dialects.mssql import BIGINT, VARBINARY, JSON, UNIQUEIDENTIFIER, NVARCHAR, BIT
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.types import (
-    BOOLEAN,
     DATE,
     DATETIME,
     DECIMAL,
     INTEGER,
     TIME,
-    TIMESTAMP,
     TypeDecorator,
 )
 from sshtunnel import SSHTunnelForwarder
@@ -159,7 +157,7 @@ class SqlServerConnector(SQLConnector):
 
         columns = [column._copy() for column in from_table.columns]
         if as_temp_table:
-            new_table = sa.Table(table_name, meta, *columns, prefixes=["TEMPORARY"])
+            new_table = sa.Table(f"#{table_name}", meta, *columns)
             new_table.create(bind=connection)
             return new_table
         new_table = sa.Table(table_name, meta, *columns)
@@ -182,7 +180,7 @@ class SqlServerConnector(SQLConnector):
         new_columns = [sa.Column(column.name, column.type) for column in table.columns]
         if temp_table is True:
             new_table = sa.Table(
-                new_table_name, metadata, *new_columns, prefixes=["TEMPORARY"]
+                f"#{new_table_name}", metadata, *new_columns 
             )
         else:
             new_table = sa.Table(new_table_name, metadata, *new_columns)
@@ -265,7 +263,7 @@ class SqlServerConnector(SQLConnector):
 
         # string formats
         if jsonschema_type.get("format") == "date-time":
-            return TIMESTAMP()
+            return DATETIME()
         if jsonschema_type.get("format") == "uuid":
             return UNIQUEIDENTIFIER()
         if (
@@ -291,14 +289,13 @@ class SqlServerConnector(SQLConnector):
             JSON,
             UNIQUEIDENTIFIER,
             NVARCHAR,
-            TIMESTAMP,
             DATETIME,
             DATE,
             TIME,
             DECIMAL,
             BIGINT,
             INTEGER,
-            BOOLEAN,
+            BIT,
             NOTYPE,
         ]
 
@@ -356,7 +353,7 @@ class SqlServerConnector(SQLConnector):
                 )
             )
         if as_temp_table:
-            new_table = sa.Table(table_name, meta, *columns, prefixes=["TEMPORARY"])
+            new_table = sa.Table(f"#{table_name}", meta, *columns)
             new_table.create(bind=connection)
             return new_table
 
@@ -466,8 +463,8 @@ class SqlServerConnector(SQLConnector):
 
         return sa.DDL(
             (
-                'ALTER TABLE "%(schema_name)s"."%(table_name)s"'
-                "ADD COLUMN %(column_name)s %(column_type)s"
+                'ALTER TABLE "%(schema_name)s"."%(table_name)s" '
+                "ADD %(column_name)s %(column_type)s"
             ),
             {
                 "schema_name": schema_name,
@@ -570,8 +567,8 @@ class SqlServerConnector(SQLConnector):
         column = sa.Column(column_name, column_type)
         return sa.DDL(
             (
-                'ALTER TABLE "%(schema_name)s"."%(table_name)s"'
-                "ALTER COLUMN %(column_name)s %(column_type)s"
+                'ALTER TABLE "%(schema_name)s"."%(table_name)s" '
+                "ALTER %(column_name)s %(column_type)s"
             ),
             {
                 "schema_name": schema_name,
@@ -590,8 +587,6 @@ class SqlServerConnector(SQLConnector):
         if config.get("sqlalchemy_url"):
             return cast(str, config["sqlalchemy_url"])
 
-        trust_cert = config.get("trust_server_certificate", False)
-
         sqlalchemy_url = URL.create(
             drivername=config["dialect+driver"],
             username=config["user"],
@@ -599,7 +594,6 @@ class SqlServerConnector(SQLConnector):
             host=config["host"],
             port=config["port"],
             database=config["database"],
-            query={"TrustServerCertificate": str(trust_cert)}
         )
         return cast(str, sqlalchemy_url)
 
