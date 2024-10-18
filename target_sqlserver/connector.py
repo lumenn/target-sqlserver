@@ -23,6 +23,7 @@ from sqlalchemy.dialects.mssql import BIGINT, VARBINARY, JSON, UNIQUEIDENTIFIER,
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.types import (
+    ARRAY,
     DATE,
     DATETIME,
     DECIMAL,
@@ -257,10 +258,10 @@ class SqlServerConnector(SQLConnector):
         if "integer" in jsonschema_type["type"]:
             return BIGINT()
         if "object" in jsonschema_type["type"]:
-            return VARBINARY()
+            return JSON()
         if "array" in jsonschema_type["type"]:
-            raise RuntimeError("Array type is not supported in SqlServer.")
-
+            return JSON()
+        
         # string formats
         if jsonschema_type.get("format") == "date-time":
             return DATETIME()
@@ -272,7 +273,7 @@ class SqlServerConnector(SQLConnector):
         ):
             return HexByteString()
         individual_type = th.to_sql_type(jsonschema_type)
-        return NVARCHAR() if isinstance(individual_type, NVARCHAR) else individual_type
+        return NVARCHAR(240) if isinstance(individual_type, NVARCHAR) else individual_type
 
     @staticmethod
     def pick_best_sql_type(sql_type_array: list):
@@ -302,7 +303,7 @@ class SqlServerConnector(SQLConnector):
         for sql_type, obj in itertools.product(precedence_order, sql_type_array):
             if isinstance(obj, sql_type):
                 return obj
-        return NVARCHAR()
+        return NVARCHAR(240)
 
     def create_empty_table(  # type: ignore[override]  # noqa: PLR0913
         self,
