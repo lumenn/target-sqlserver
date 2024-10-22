@@ -355,10 +355,9 @@ class SqlServerConnector(SQLConnector):
             )
         if as_temp_table:
             new_table = sa.Table(f"#{table_name}", meta, *columns)
-            new_table.create(bind=connection)
-            return new_table
+        else:
+            new_table = sa.Table(table_name, meta, *columns)
 
-        new_table = sa.Table(table_name, meta, *columns)
         new_table.create(bind=connection)
         return new_table
 
