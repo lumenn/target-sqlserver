@@ -5,9 +5,11 @@ from __future__ import annotations
 # flake8: noqa
 import copy
 import io
+import json
 from contextlib import redirect_stdout
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 import sqlalchemy
@@ -98,21 +100,19 @@ def verify_data(
                     sqlalchemy.text(
                         f"SELECT * FROM {full_table_name} ORDER BY {primary_key}"
                     )
-                )
-                assert result.rowcount == number_of_rows
-                result_dict = remove_metadata_columns(result.first()._asdict())
-                assert result_dict == check_data
+                ).fetchall()
+
+                assert len(result) == number_of_rows
+                data = convert_to_dict(result[0])
+                assert remove_metadata_columns(data) == check_data
             elif isinstance(check_data, list):
                 result = connection.execute(
                     sqlalchemy.text(
                         f"SELECT * FROM {full_table_name} ORDER BY {primary_key}"
                     )
-                )
-                assert result.rowcount == number_of_rows
-                result_dict = [
-                    remove_metadata_columns(row._asdict()) for row in result.all()
-                ]
-
+                ).fetchall()
+                assert len(result) == number_of_rows
+                result_dict = [convert_to_dict(row) for row in result]
                 # bytea columns are returned as memoryview objects
                 # we need to convert them to bytes to allow comparison with check_data
                 for row in result_dict:
@@ -129,6 +129,18 @@ def verify_data(
             )
             assert result.first()[0] == number_of_rows
 
+def convert_to_dict(row: sqlalchemy.engine.row.Row):
+    dict_row = row._asdict()
+    new_dict_row: dict = {}
+    for column in dict_row.keys():
+        try:
+            dict_column = json.loads(dict_row[column])
+        except:
+            dict_column = dict_row[column]
+
+        new_dict_row[column] = dict_column
+        
+    return remove_metadata_columns(new_dict_row)
 
 def test_sqlalchemy_url_config(sqlserver_config):
     """Be sure that passing a sqlalchemy_url works
@@ -420,15 +432,6 @@ def test_jsonb_data(sqlserver_target):
 
 
 def test_encoded_string_data(sqlserver_target):
-    """
-    We removed NUL characters from the original encoded_strings.singer as sqlserver doesn't allow them.
-    https://www.sqlserverql.org/docs/current/functions-string.html#:~:text=chr(0)%20is%20disallowed%20because%20text%20data%20types%20cannot%20store%20that%20character.
-    chr(0) is disallowed because text data types cannot store that character.
-
-    Note you will recieve a  ValueError: A string literal cannot contain NUL (0x00) characters. Which seems like a reasonable error.
-    See issue https://github.com/MeltanoLabs/target-sqlserver/issues/60 for more details.
-    """
-
     file_name = "encoded_strings.singer"
     singer_file_to_target(file_name, sqlserver_target)
     row = {"id": 1, "info": "simple string 2837"}
@@ -440,7 +443,7 @@ def test_encoded_string_data(sqlserver_target):
 
 
 def test_tap_appl(sqlserver_target):
-    """Expect to fail with ValueError due to primary key https://github.com/MeltanoLabs/target-sqlserver/issues/54"""
+    """Expect to fail with ValueError due to primary key https://github.com/MeltanoLabs/target-postgres/issues/54"""
     file_name = "tap_aapl.singer"
     singer_file_to_target(file_name, sqlserver_target)
 
@@ -584,7 +587,7 @@ def test_activate_version_hard_delete(sqlserver_config):
     singer_file_to_target(file_name, pg_hard_delete_true)
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 7
+        assert len(result.fetchall()) == 7
     with engine.connect() as connection, connection.begin():
         # Add a record like someone would if they weren't using the tap target combo
         result = connection.execute(
@@ -599,14 +602,14 @@ def test_activate_version_hard_delete(sqlserver_config):
         )
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 9
+        assert len(result.fetchall()) == 9
 
     singer_file_to_target(file_name, pg_hard_delete_true)
 
     # Should remove the 2 records we added manually
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 7
+        assert len(result.fetchall()) == 7
 
 
 def test_activate_version_soft_delete(sqlserver_config):
@@ -621,7 +624,7 @@ def test_activate_version_soft_delete(sqlserver_config):
     singer_file_to_target(file_name, pg_soft_delete)
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 7
+        assert len(result.fetchall()) == 7
 
     # Same file as above, but with South America (code=SA) record missing.
     file_name = f"{table_name}_with_delete.singer"
@@ -630,7 +633,7 @@ def test_activate_version_soft_delete(sqlserver_config):
     singer_file_to_target(file_name, pg_soft_delete)
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 7
+        assert len(result.fetchall()) == 7
         result = connection.execute(
             sqlalchemy.text(f"SELECT * FROM {full_table_name} WHERE code='SA'")
         )
@@ -651,21 +654,21 @@ def test_activate_version_soft_delete(sqlserver_config):
         )
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 9
+        assert len(result.fetchall()) == 9
 
     singer_file_to_target(file_name, pg_soft_delete)
 
     # Should have all records including the 2 we added manually
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 9
+        assert len(result.fetchall()) == 9
 
         result = connection.execute(
             sqlalchemy.text(
                 f"SELECT * FROM {full_table_name} where _sdc_deleted_at is NOT NULL"
             )
         )
-        assert result.rowcount == 3  # 2 manual + 1 deleted (south america)
+        assert len(result.fetchall()) == 3  # 2 manual + 1 deleted (south america)
 
         result = connection.execute(
             sqlalchemy.text(f"SELECT * FROM {full_table_name} WHERE code='SA'")
@@ -702,7 +705,7 @@ def test_activate_version_deletes_data_properly(sqlserver_target):
     # Will populate us with 7 records
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 7
+        assert len(result.fetchall()) == 7
     with engine.connect() as connection, connection.begin():
         result = connection.execute(
             sqlalchemy.text(
@@ -716,13 +719,13 @@ def test_activate_version_deletes_data_properly(sqlserver_target):
         )
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 9
+        assert len(result.fetchall()) == 9
     # Only has a schema and one activate_version message, should delete all records as it's a higher version than what's currently in the table
     file_name = f"{table_name}_2.singer"
     singer_file_to_target(file_name, pg_hard_delete)
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT * FROM {full_table_name}"))
-        assert result.rowcount == 0
+        assert len(result.fetchall()) == 0
 
 
 def test_reserved_keywords(sqlserver_target):
