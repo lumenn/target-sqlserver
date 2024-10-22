@@ -202,8 +202,7 @@ The below table shows how this tap will map between jsonschema datatypes and Pos
 | UNSUPPORTED                    | inet                                    |
 | UNSUPPORTED                    | integer                                 |
 | UNSUPPORTED                    | interval [ fields ] [ (p) ]             |
-| UNSUPPORTED                    | json                                    |
-| array; object                  | jsonb                                   |
+| array; object                  | json for Azure, NVARCHAR for other      |
 | UNSUPPORTED                    | line                                    |
 | UNSUPPORTED                    | lseg                                    |
 | UNSUPPORTED                    | macaddr                                 |
@@ -232,31 +231,19 @@ The below table shows how this tap will map between jsonschema datatypes and Pos
 
 Note that while object types are mapped directly to jsonb, array types are mapped to a jsonb array.
 
-If a column has multiple jsonschema types, the following order is using to order Postgres types, from highest priority to lowest priority.
-- BYTEA
-- ARRAY(JSONB)
-- JSONB
-- TEXT
-- DATETIME
-- DATE
-- TIME
-- DECIMAL
-- BIGINT
-- INTEGER
-- BIT
-- NOTYPE
-
-## Content Encoding Support
-
-Json Schema supports the [`contentEncoding` keyword](https://datatracker.ietf.org/doc/html/rfc4648#section-8), which can be used to specify the encoding of input string types.
-
-This target can detect content encoding clues in the schema to determine how to store the data in the postgres in a more efficient way.
-
-Content encoding interpretation is disabled by default. This is because the default config is meant to be as permissive as possible, and do not make any assumptions about the data that could lead to data loss.
-
-However if you know your data respects the advertised content encoding way, you can enable this feature to get better performance and storage efficiency.
-
-To enable it, set the `interpret_content_encoding` option to `True`.
+If a column has multiple jsonschema types, the following order is using to order SqlServer types, from highest priority to lowest priority.
+  - HexByteString
+  - JSON
+  - UNIQUEIDENTIFIER
+  - NVARCHAR
+  - DATETIME
+  - DATE
+  - TIME
+  - DECIMAL
+  - BIGINT
+  - INTEGER
+  - BIT
+  - NOTYPE
 
 ### base16
 
