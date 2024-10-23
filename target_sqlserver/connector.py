@@ -121,11 +121,11 @@ class SqlServerConnector(SQLConnector):
             column_object = None
             if property_name in columns:
                 column_object = columns[property_name]
-
+            is_primary_key = property_name in primary_keys
             self.prepare_column(
                 full_table_name=table.fullname,
                 column_name=property_name,
-                sql_type=self.to_sql_type(property_def),
+                sql_type=self.to_sql_type(property_def, is_primary_key),
                 connection=connection,
                 column_object=column_object,
             )
@@ -188,7 +188,7 @@ class SqlServerConnector(SQLConnector):
         new_table.create(bind=connection)
         return new_table
 
-    def to_sql_type(self, jsonschema_type: dict) -> sa.types.TypeEngine:  # type: ignore[override]
+    def to_sql_type(self, jsonschema_type: dict, is_primary_key) -> sa.types.TypeEngine:  # type: ignore[override]
         """Return a JSON Schema representation of the provided type.
 
         By default will call `typing.to_sql_type()`.
@@ -238,13 +238,13 @@ class SqlServerConnector(SQLConnector):
             return NOTYPE()
         sql_type_array = []
         for json_type in json_type_array:
-            picked_type = self.pick_individual_type(jsonschema_type=json_type)
+            picked_type = self.pick_individual_type(jsonschema_type=json_type, is_primary_key=is_primary_key)
             if picked_type is not None:
                 sql_type_array.append(picked_type)
 
-        return SqlServerConnector.pick_best_sql_type(sql_type_array=sql_type_array)
+        return SqlServerConnector.pick_best_sql_type(sql_type_array=sql_type_array, is_primary_key=is_primary_key)
 
-    def pick_individual_type(self, jsonschema_type: dict):  # noqa: PLR0911
+    def pick_individual_type(self, jsonschema_type: dict, is_primary_key: bool):  # noqa: PLR0911
         """Select the correct sql type assuming jsonschema_type has only a single type.
 
         Args:
@@ -273,10 +273,14 @@ class SqlServerConnector(SQLConnector):
         ):
             return HexByteString()
         individual_type = th.to_sql_type(jsonschema_type)
-        return NVARCHAR(240) if isinstance(individual_type, NVARCHAR) else individual_type
+
+        if isinstance(individual_type, NVARCHAR):
+            return SqlServerConnector.select_nvarchar_size(is_primary_key)
+        else:
+            return individual_type
 
     @staticmethod
-    def pick_best_sql_type(sql_type_array: list):
+    def pick_best_sql_type(sql_type_array: list, is_primary_key: bool):
         """Select the best SQL type from an array of instances of SQL type classes.
 
         Args:
@@ -303,7 +307,16 @@ class SqlServerConnector(SQLConnector):
         for sql_type, obj in itertools.product(precedence_order, sql_type_array):
             if isinstance(obj, sql_type):
                 return obj
-        return NVARCHAR(240)
+        return SqlServerConnector.select_nvarchar_size(is_primary_key)
+
+    @staticmethod
+    def select_nvarchar_size(is_primary_key: bool) -> NVARCHAR:
+        # Max size of clustered index in SQL Server id 900 bytes
+        # 450 byte pairs of nvarchar -> https://learn.microsoft.com/en-us/sql/sql-server/maximum-capacity-specifications-for-sql-server?view=sql-server-ver16#-objects
+        if is_primary_key:
+            return NVARCHAR(450)
+        else:
+            return NVARCHAR()
 
     def create_empty_table(  # type: ignore[override]  # noqa: PLR0913
         self,
@@ -348,7 +361,7 @@ class SqlServerConnector(SQLConnector):
             columns.append(
                 sa.Column(
                     property_name,
-                    self.to_sql_type(property_jsonschema),
+                    self.to_sql_type(property_jsonschema, is_primary_key),
                     primary_key=is_primary_key,
                     autoincrement=False,  # See: https://github.com/MeltanoLabs/target-postgres/issues/193 # noqa: E501
                 )

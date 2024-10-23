@@ -255,7 +255,7 @@ class SqlServerSink(SQLSink):
         columns: list[sa.Column] = [
             sa.Column(
                 property_name,
-                self.connector.to_sql_type(property_jsonschema),
+                self.connector.to_sql_type(property_jsonschema, is_primary_key=False),
             )
             for property_name, property_jsonschema in schema["properties"].items()
         ]
